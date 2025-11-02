@@ -1,0 +1,1380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Faith Connect - Church Management System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .line-clamp-3 {
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        .fade-in {
+            animation: fadeIn 0.3s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div id="app"></div>
+
+    <script>
+        const state = {
+            currentUser: null,
+            currentPage: 'login',
+            mobileMenuOpen: false,
+            readings: [],
+            announcements: [],
+            bookings: [],
+            prayers: [],
+            events: [],
+            offerings: [],
+            tithes: [],
+            donations: [],
+            expenses: [],
+            budgets: [],
+            searchTerm: '',
+            otpSent: false,
+            isNewUser: false,
+            phoneNumber: '',
+            showForms: {}
+        };
+
+        const storage = {
+            get: (key) => {
+                const data = localStorage.getItem(key);
+                return data ? JSON.parse(data) : null;
+            },
+            set: (key, value) => {
+                localStorage.setItem(key, JSON.stringify(value));
+            },
+            remove: (key) => {
+                localStorage.removeItem(key);
+            }
+        };
+
+        function loadData() {
+            state.currentUser = storage.get('current_user');
+            state.readings = storage.get('readings') || [];
+            state.announcements = storage.get('announcements') || [];
+            state.bookings = storage.get('bookings') || [];
+            state.prayers = storage.get('prayers') || [];
+            state.events = storage.get('events') || [];
+            state.offerings = storage.get('offerings') || [];
+            state.tithes = storage.get('tithes') || [];
+            state.donations = storage.get('donations') || [];
+            state.expenses = storage.get('expenses') || [];
+            state.budgets = storage.get('budgets') || [];
+            
+            if (state.currentUser) {
+                state.currentPage = 'dashboard';
+            }
+        }
+
+        function handleSendOTP() {
+            const phoneInput = document.getElementById('phoneNumber');
+            if (phoneInput && phoneInput.value.length >= 10) {
+                state.phoneNumber = phoneInput.value;
+                state.otpSent = true;
+                state.isNewUser = phoneInput.value !== '0112308046';
+                render();
+            }
+        }
+
+        function handleChangeNumber() {
+            state.otpSent = false;
+            state.isNewUser = false;
+            render();
+        }
+
+        function handleLogin() {
+            const otpInput = document.getElementById('otp');
+            const userNameInput = document.getElementById('userName');
+            
+            if (otpInput && otpInput.value === '1234') {
+                const user = {
+                    phone: state.phoneNumber,
+                    name: userNameInput ? userNameInput.value : 'Member',
+                    role: state.phoneNumber === '0112308046' ? 'admin' : 'member',
+                    joinedDate: new Date().toISOString()
+                };
+                state.currentUser = user;
+                storage.set('current_user', user);
+                state.currentPage = 'dashboard';
+                render();
+            } else {
+                alert('Invalid OTP. Please use 1234');
+            }
+        }
+
+        function handleLogout() {
+            state.currentUser = null;
+            storage.remove('current_user');
+            state.currentPage = 'login';
+            render();
+        }
+
+        function changePage(page) {
+            state.currentPage = page;
+            state.mobileMenuOpen = false;
+            render();
+        }
+
+        function toggleMobileMenu() {
+            state.mobileMenuOpen = !state.mobileMenuOpen;
+            render();
+        }
+
+        function toggleForm(formType) {
+            state.showForms[formType] = !state.showForms[formType];
+            render();
+        }
+
+        function handleSearch(value) {
+            state.searchTerm = value;
+            render();
+        }
+
+        // Financial Functions
+        function addOffering() {
+            const date = document.getElementById('offeringDate').value;
+            const amount = parseFloat(document.getElementById('offeringAmount').value);
+            const type = document.getElementById('offeringType').value;
+            const notes = document.getElementById('offeringNotes').value;
+
+            if (date && amount) {
+                const offering = {
+                    id: Date.now(),
+                    date,
+                    amount,
+                    type,
+                    notes,
+                    addedBy: state.currentUser.name
+                };
+                state.offerings.unshift(offering);
+                storage.set('offerings', state.offerings);
+                state.showForms.offering = false;
+                render();
+            } else {
+                alert('Please fill in required fields');
+            }
+        }
+
+        function addTithe() {
+            const date = document.getElementById('titheDate').value;
+            const amount = parseFloat(document.getElementById('titheAmount').value);
+            const contributor = document.getElementById('titheContributor').value;
+            const notes = document.getElementById('titheNotes').value;
+
+            if (date && amount && contributor) {
+                const tithe = {
+                    id: Date.now(),
+                    date,
+                    amount,
+                    contributor,
+                    notes,
+                    addedBy: state.currentUser.name
+                };
+                state.tithes.unshift(tithe);
+                storage.set('tithes', state.tithes);
+                state.showForms.tithe = false;
+                render();
+            } else {
+                alert('Please fill in required fields');
+            }
+        }
+
+        function addDonation() {
+            const date = document.getElementById('donationDate').value;
+            const amount = parseFloat(document.getElementById('donationAmount').value);
+            const donor = document.getElementById('donationDonor').value;
+            const purpose = document.getElementById('donationPurpose').value;
+            const notes = document.getElementById('donationNotes').value;
+
+            if (date && amount && donor) {
+                const donation = {
+                    id: Date.now(),
+                    date,
+                    amount,
+                    donor,
+                    purpose,
+                    notes,
+                    addedBy: state.currentUser.name
+                };
+                state.donations.unshift(donation);
+                storage.set('donations', state.donations);
+                state.showForms.donation = false;
+                render();
+            } else {
+                alert('Please fill in required fields');
+            }
+        }
+
+        function addExpense() {
+            const date = document.getElementById('expenseDate').value;
+            const amount = parseFloat(document.getElementById('expenseAmount').value);
+            const category = document.getElementById('expenseCategory').value;
+            const description = document.getElementById('expenseDescription').value;
+            const payee = document.getElementById('expensePayee').value;
+
+            if (date && amount && category && description) {
+                const expense = {
+                    id: Date.now(),
+                    date,
+                    amount,
+                    category,
+                    description,
+                    payee,
+                    addedBy: state.currentUser.name
+                };
+                state.expenses.unshift(expense);
+                storage.set('expenses', state.expenses);
+                state.showForms.expense = false;
+                render();
+            } else {
+                alert('Please fill in required fields');
+            }
+        }
+
+        function addBudget() {
+            const name = document.getElementById('budgetName').value;
+            const amount = parseFloat(document.getElementById('budgetAmount').value);
+            const category = document.getElementById('budgetCategory').value;
+            const startDate = document.getElementById('budgetStartDate').value;
+            const endDate = document.getElementById('budgetEndDate').value;
+            const description = document.getElementById('budgetDescription').value;
+
+            if (name && amount && category && startDate && endDate) {
+                const budget = {
+                    id: Date.now(),
+                    name,
+                    amount,
+                    category,
+                    startDate,
+                    endDate,
+                    description,
+                    spent: 0,
+                    createdBy: state.currentUser.name
+                };
+                state.budgets.push(budget);
+                storage.set('budgets', state.budgets);
+                state.showForms.budget = false;
+                render();
+            } else {
+                alert('Please fill in required fields');
+            }
+        }
+
+        function calculateFinancials() {
+            const totalOfferings = state.offerings.reduce((sum, o) => sum + o.amount, 0);
+            const totalTithes = state.tithes.reduce((sum, t) => sum + t.amount, 0);
+            const totalDonations = state.donations.reduce((sum, d) => sum + d.amount, 0);
+            const totalIncome = totalOfferings + totalTithes + totalDonations;
+            const totalExpenses = state.expenses.reduce((sum, e) => sum + e.amount, 0);
+            const netBalance = totalIncome - totalExpenses;
+
+            return {
+                totalOfferings,
+                totalTithes,
+                totalDonations,
+                totalIncome,
+                totalExpenses,
+                netBalance
+            };
+        }
+
+        // Data management functions
+        function addReading() {
+            const title = document.getElementById('readingTitle').value;
+            const date = document.getElementById('readingDate').value;
+            const scripture = document.getElementById('readingScripture').value;
+            const content = document.getElementById('readingContent').value;
+            const audioUrl = document.getElementById('readingAudio').value;
+
+            if (title && content) {
+                state.readings.unshift({
+                    id: Date.now(), title, date, scripture, content, audioUrl,
+                    addedBy: state.currentUser.name
+                });
+                storage.set('readings', state.readings);
+                state.showForms.reading = false;
+                render();
+            }
+        }
+
+        function addAnnouncement() {
+            const title = document.getElementById('announcementTitle').value;
+            const priority = document.getElementById('announcementPriority').value;
+            const content = document.getElementById('announcementContent').value;
+
+            if (title && content) {
+                state.announcements.unshift({
+                    id: Date.now(), title, priority, content,
+                    date: new Date().toLocaleDateString(),
+                    addedBy: state.currentUser.name
+                });
+                storage.set('announcements', state.announcements);
+                state.showForms.announcement = false;
+                render();
+            }
+        }
+
+        function addBooking() {
+            const pastor = document.getElementById('bookingPastor').value;
+            const date = document.getElementById('bookingDate').value;
+            const time = document.getElementById('bookingTime').value;
+            const reason = document.getElementById('bookingReason').value;
+
+            if (date && time && reason) {
+                state.bookings.push({
+                    id: Date.now(), pastor, date, time, reason,
+                    memberName: state.currentUser.name,
+                    memberPhone: state.currentUser.phone,
+                    status: 'pending'
+                });
+                storage.set('bookings', state.bookings);
+                state.showForms.booking = false;
+                render();
+            }
+        }
+
+        function selectTimeSlot(time) {
+            document.getElementById('bookingTime').value = time;
+            document.querySelectorAll('.time-slot').forEach(slot => {
+                if (slot.textContent.trim() === time) {
+                    slot.classList.add('border-purple-600', 'bg-purple-50', 'text-purple-700', 'font-semibold');
+                    slot.classList.remove('border-gray-300');
+                } else {
+                    slot.classList.remove('border-purple-600', 'bg-purple-50', 'text-purple-700', 'font-semibold');
+                    slot.classList.add('border-gray-300');
+                }
+            });
+        }
+
+        function addPrayer() {
+            const title = document.getElementById('prayerTitle').value;
+            const content = document.getElementById('prayerContent').value;
+
+            if (title && content) {
+                state.prayers.unshift({
+                    id: Date.now(), title, content,
+                    author: state.currentUser.name,
+                    date: new Date().toLocaleDateString(),
+                    prayerCount: 0
+                });
+                storage.set('prayers', state.prayers);
+                state.showForms.prayer = false;
+                render();
+            }
+        }
+
+        function addPrayerSupport(prayerId) {
+            const prayer = state.prayers.find(p => p.id === prayerId);
+            if (prayer) {
+                prayer.prayerCount++;
+                storage.set('prayers', state.prayers);
+                render();
+            }
+        }
+
+        function addEvent() {
+            const title = document.getElementById('eventTitle').value;
+            const date = document.getElementById('eventDate').value;
+            const time = document.getElementById('eventTime').value;
+            const location = document.getElementById('eventLocation').value;
+            const description = document.getElementById('eventDescription').value;
+
+            if (title && date && time) {
+                state.events.push({
+                    id: Date.now(), title, date, time, location, description,
+                    organizer: state.currentUser.name
+                });
+                state.events.sort((a, b) => new Date(a.date) - new Date(b.date));
+                storage.set('events', state.events);
+                state.showForms.event = false;
+                render();
+            }
+        }
+
+        // Render Functions
+        function renderLoginPage() {
+            return `
+                <div class="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex items-center justify-center p-4">
+                    <div class="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md fade-in">
+                        <div class="text-center mb-8">
+                            <div class="bg-gradient-to-r from-blue-600 to-purple-600 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 text-white text-4xl">
+                                ⛪
+                            </div>
+                            <h1 class="text-3xl font-bold text-gray-800 mb-2">Faith Connect</h1>
+                            <p class="text-gray-600">Your Church Community Platform</p>
+                        </div>
+
+                        ${!state.otpSent ? `
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Mobile Number</label>
+                                    <input type="tel" id="phoneNumber" placeholder="Enter your mobile number"
+                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                </div>
+                                <button onclick="handleSendOTP()"
+                                    class="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-lg font-semibold hover:shadow-lg transition-all">
+                                    Send OTP
+                                </button>
+                                <p class="text-xs text-center text-gray-500">Demo: Use any number, OTP is 1234</p>
+                            </div>
+                        ` : `
+                            <div class="space-y-4">
+                                ${state.isNewUser ? `
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Your Name</label>
+                                        <input type="text" id="userName" placeholder="Enter your name"
+                                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                    </div>
+                                ` : ''}
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Enter OTP</label>
+                                    <input type="text" id="otp" placeholder="Enter 6-digit OTP"
+                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                    <p class="text-xs text-gray-500 mt-2">Demo OTP: 1234</p>
+                                </div>
+                                <button onclick="handleLogin()"
+                                    class="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-lg font-semibold hover:shadow-lg transition-all">
+                                    Verify & Login
+                                </button>
+                                <button onclick="handleChangeNumber()"
+                                    class="w-full text-gray-600 py-2 text-sm hover:text-gray-800">
+                                    Change Number
+                                </button>
+                            </div>
+                        `}
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderNavigation() {
+            const navItems = [
+                { id: 'dashboard', label: 'Dashboard', icon: '🏠' },
+                { id: 'readings', label: 'Readings', icon: '📖' },
+                { id: 'announcements', label: 'Announcements', icon: '📢' },
+                { id: 'bookings', label: 'Bookings', icon: '📅' },
+                { id: 'prayers', label: 'Prayer Wall', icon: '🙏' },
+                { id: 'events', label: 'Events', icon: '🎉' },
+                { id: 'finances', label: 'Finances', icon: '💰' }
+            ];
+
+            return `
+                <nav class="bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg">
+                    <div class="max-w-7xl mx-auto px-4">
+                        <div class="flex justify-between items-center h-16">
+                            <div class="flex items-center space-x-3">
+                                <span class="text-xl font-bold">⛪ Faith Connect</span>
+                            </div>
+                            
+                            <div class="hidden md:flex space-x-1">
+                                ${navItems.map(item => `
+                                    <button onclick="changePage('${item.id}')"
+                                        class="px-4 py-2 rounded-lg transition-all ${state.currentPage === item.id ? 'bg-white bg-opacity-20' : 'hover:bg-white hover:bg-opacity-10'}">
+                                        ${item.icon} ${item.label}
+                                    </button>
+                                `).join('')}
+                            </div>
+
+                            <div class="flex items-center space-x-4">
+                                <span class="hidden md:inline text-sm">👤 ${state.currentUser.name}</span>
+                                <button onclick="handleLogout()" class="hover:bg-white hover:bg-opacity-10 px-3 py-2 rounded-lg transition-all text-sm">
+                                    Logout
+                                </button>
+                                <button onclick="toggleMobileMenu()" class="md:hidden p-2">
+                                    ${state.mobileMenuOpen ? '✕' : '☰'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    ${state.mobileMenuOpen ? `
+                        <div class="md:hidden bg-white bg-opacity-10">
+                            ${navItems.map(item => `
+                                <button onclick="changePage('${item.id}')"
+                                    class="w-full text-left px-6 py-3 hover:bg-white hover:bg-opacity-10 ${state.currentPage === item.id ? 'bg-white bg-opacity-20' : ''}">
+                                    ${item.icon} ${item.label}
+                                </button>
+                            `).join('')}
+                        </div>
+                    ` : ''}
+                </nav>
+            `;
+        }
+
+        function renderDashboard() {
+            const financials = calculateFinancials();
+            
+            return `
+                <div class="max-w-7xl mx-auto px-4 py-8 fade-in">
+                    <h2 class="text-3xl font-bold text-gray-800 mb-2">Welcome, ${state.currentUser.name}!</h2>
+                    <p class="text-gray-600 mb-8">
+                        ${state.currentUser.role === 'admin' ? '👑 Administrator Access' : '📱 ' + state.currentUser.phone}
+                    </p>
+                    
+                    <!-- Financial Overview -->
+                    <div class="bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl shadow-lg p-6 text-white mb-8">
+                        <h3 class="text-xl font-bold mb-4">💰 Financial Summary</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <p class="text-sm opacity-90">Total Income</p>
+                                <p class="text-3xl font-bold">KES ${financials.totalIncome.toLocaleString()}</p>
+                            </div>
+                            <div>
+                                <p class="text-sm opacity-90">Total Expenses</p>
+                                <p class="text-3xl font-bold">KES ${financials.totalExpenses.toLocaleString()}</p>
+                            </div>
+                            <div>
+                                <p class="text-sm opacity-90">Net Balance</p>
+                                <p class="text-3xl font-bold ${financials.netBalance >= 0 ? 'text-green-200' : 'text-red-200'}">
+                                    KES ${financials.netBalance.toLocaleString()}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Stats Grid -->
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                        <div class="bg-white rounded-xl shadow-lg p-6">
+                            <div class="text-4xl mb-2">📖</div>
+                            <p class="text-gray-600 text-sm">Readings</p>
+                            <p class="text-2xl font-bold text-gray-800">${state.readings.length}</p>
+                        </div>
+                        <div class="bg-white rounded-xl shadow-lg p-6">
+                            <div class="text-4xl mb-2">📅</div>
+                            <p class="text-gray-600 text-sm">Events</p>
+                            <p class="text-2xl font-bold text-gray-800">${state.events.length}</p>
+                        </div>
+                        <div class="bg-white rounded-xl shadow-lg p-6">
+                            <div class="text-4xl mb-2">🙏</div>
+                            <p class="text-gray-600 text-sm">Prayers</p>
+                            <p class="text-2xl font-bold text-gray-800">${state.prayers.length}</p>
+                        </div>
+                        <div class="bg-white rounded-xl shadow-lg p-6">
+                            <div class="text-4xl mb-2">📢</div>
+                            <p class="text-gray-600 text-sm">Announcements</p>
+                            <p class="text-2xl font-bold text-gray-800">${state.announcements.length}</p>
+                        </div>
+                    </div>
+
+                    <!-- Quick Access -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div class="bg-white rounded-xl shadow-lg p-6">
+                            <h3 class="text-xl font-bold text-gray-800 mb-4">📖 Latest Reading</h3>
+                            ${state.readings.length > 0 ? `
+                                <div class="border-l-4 border-blue-600 pl-4">
+                                    <p class="text-sm text-gray-500">${state.readings[0].date}</p>
+                                    <p class="font-semibold text-gray-800 mt-1">${state.readings[0].title}</p>
+                                    <p class="text-gray-600 mt-2 line-clamp-3">${state.readings[0].content}</p>
+                                </div>
+                            ` : '<p class="text-gray-500">No readings available yet</p>'}
+                        </div>
+
+                        <div class="bg-white rounded-xl shadow-lg p-6">
+                            <h3 class="text-xl font-bold text-gray-800 mb-4">📅 Upcoming Events</h3>
+                            ${state.events.length > 0 ? `
+                                <div class="space-y-3">
+                                    ${state.events.slice(0, 3).map(event => `
+                                        <div class="p-3 bg-purple-50 rounded-lg">
+                                            <p class="font-semibold text-gray-800">${event.title}</p>
+                                            <p class="text-sm text-gray-600">${event.date} at ${event.time}</p>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            ` : '<p class="text-gray-500">No upcoming events</p>'}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderFinancesPage() {
+            const financials = calculateFinancials();
+            const currentView = state.financeView || 'overview';
+
+            return `
+                <div class="max-w-7xl mx-auto px-4 py-8 fade-in">
+                    <h2 class="text-3xl font-bold text-gray-800 mb-8">💰 Financial Management</h2>
+
+                    <!-- Tab Navigation -->
+                    <div class="bg-white rounded-xl shadow-lg p-2 mb-8 flex flex-wrap gap-2">
+                        ${['overview', 'offerings', 'tithes', 'donations', 'expenses', 'budgets'].map(view => `
+                            <button onclick="state.financeView='${view}'; render()"
+                                class="px-4 py-2 rounded-lg transition-all ${currentView === view ? 'bg-blue-600 text-white' : 'hover:bg-gray-100'}">
+                                ${view.charAt(0).toUpperCase() + view.slice(1)}
+                            </button>
+                        `).join('')}
+                    </div>
+
+                    ${currentView === 'overview' ? renderFinanceOverview(financials) :
+                      currentView === 'offerings' ? renderOfferingsView() :
+                      currentView === 'tithes' ? renderTithesView() :
+                      currentView === 'donations' ? renderDonationsView() :
+                      currentView === 'expenses' ? renderExpensesView() :
+                      renderBudgetsView()}
+                </div>
+            `;
+        }
+
+        function renderFinanceOverview(financials) {
+            const allIncome = [...state.offerings, ...state.tithes, ...state.donations]
+                .sort((a, b) => b.id - a.id)
+                .slice(0, 5);
+            
+            let incomeHTML = '';
+            for (let i = 0; i < allIncome.length; i++) {
+                const item = allIncome[i];
+                const itemType = item.type || item.purpose || 'Tithe';
+                incomeHTML += '<div class="flex justify-between items-center p-3 bg-green-50 rounded-lg">';
+                incomeHTML += '<div>';
+                incomeHTML += '<p class="font-semibold text-gray-800">' + itemType + '</p>';
+                incomeHTML += '<p class="text-sm text-gray-600">' + item.date + '</p>';
+                incomeHTML += '</div>';
+                incomeHTML += '<p class="text-green-600 font-bold">+KES ' + item.amount.toLocaleString() + '</p>';
+                incomeHTML += '</div>';
+            }
+            
+            let expenseHTML = '';
+            const recentExpenses = state.expenses.slice(0, 5);
+            for (let i = 0; i < recentExpenses.length; i++) {
+                const expense = recentExpenses[i];
+                expenseHTML += '<div class="flex justify-between items-center p-3 bg-red-50 rounded-lg">';
+                expenseHTML += '<div>';
+                expenseHTML += '<p class="font-semibold text-gray-800">' + expense.description + '</p>';
+                expenseHTML += '<p class="text-sm text-gray-600">' + expense.category + ' • ' + expense.date + '</p>';
+                expenseHTML += '</div>';
+                expenseHTML += '<p class="text-red-600 font-bold">-KES ' + expense.amount.toLocaleString() + '</p>';
+                expenseHTML += '</div>';
+            }
+            
+            if (state.expenses.length === 0) {
+                expenseHTML = '<p class="text-gray-500">No expenses recorded</p>';
+            }
+            
+            return '<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">' +
+                '<div class="bg-gradient-to-br from-green-500 to-green-600 rounded-xl shadow-lg p-6 text-white">' +
+                '<p class="text-sm opacity-90 mb-1">Total Income</p>' +
+                '<p class="text-4xl font-bold mb-2">KES ' + financials.totalIncome.toLocaleString() + '</p>' +
+                '<div class="text-sm space-y-1">' +
+                '<p>Offerings: KES ' + financials.totalOfferings.toLocaleString() + '</p>' +
+                '<p>Tithes: KES ' + financials.totalTithes.toLocaleString() + '</p>' +
+                '<p>Donations: KES ' + financials.totalDonations.toLocaleString() + '</p>' +
+                '</div></div>' +
+                '<div class="bg-gradient-to-br from-red-500 to-red-600 rounded-xl shadow-lg p-6 text-white">' +
+                '<p class="text-sm opacity-90 mb-1">Total Expenses</p>' +
+                '<p class="text-4xl font-bold mb-2">KES ' + financials.totalExpenses.toLocaleString() + '</p>' +
+                '<p class="text-sm">Across ' + state.expenses.length + ' transactions</p>' +
+                '</div>' +
+                '<div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg p-6 text-white">' +
+                '<p class="text-sm opacity-90 mb-1">Net Balance</p>' +
+                '<p class="text-4xl font-bold mb-2">KES ' + financials.netBalance.toLocaleString() + '</p>' +
+                '<p class="text-sm">' + (financials.netBalance >= 0 ? '✅ Positive' : '⚠️ Deficit') + '</p>' +
+                '</div></div>' +
+                '<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">' +
+                '<div class="bg-white rounded-xl shadow-lg p-6">' +
+                '<h3 class="text-xl font-bold text-gray-800 mb-4">Recent Income</h3>' +
+                '<div class="space-y-3">' + incomeHTML + '</div></div>' +
+                '<div class="bg-white rounded-xl shadow-lg p-6">' +
+                '<h3 class="text-xl font-bold text-gray-800 mb-4">Recent Expenses</h3>' +
+                '<div class="space-y-3">' + expenseHTML + '</div></div></div>';
+        }
+
+        function renderOfferingsView() {
+            return `
+                <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                    ${state.currentUser.role === 'admin' ? `
+                        <button onclick="toggleForm('offering')" 
+                            class="mb-6 bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700">
+                            ➕ Record Offering
+                        </button>
+                    ` : ''}
+
+                    ${state.showForms.offering ? `
+                        <div class="mb-6 p-6 bg-gray-50 rounded-lg">
+                            <h3 class="text-xl font-bold mb-4">Record New Offering</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <input type="date" id="offeringDate" class="px-4 py-3 border rounded-lg">
+                                <input type="number" id="offeringAmount" placeholder="Amount (KES)" class="px-4 py-3 border rounded-lg">
+                                <select id="offeringType" class="px-4 py-3 border rounded-lg">
+                                    <option>Sunday Service</option>
+                                    <option>Midweek Service</option>
+                                    <option>Special Offering</option>
+                                    <option>Harvest</option>
+                                </select>
+                                <input type="text" id="offeringNotes" placeholder="Notes (optional)" class="px-4 py-3 border rounded-lg">
+                            </div>
+                            <div class="flex gap-4 mt-4">
+                                <button onclick="addOffering()" class="flex-1 bg-green-600 text-white py-3 rounded-lg font-semibold">
+                                    Save Offering
+                                </button>
+                                <button onclick="toggleForm('offering')" class="flex-1 bg-gray-300 py-3 rounded-lg font-semibold">
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+                    ` : ''}
+
+                    <h3 class="text-xl font-bold text-gray-800 mb-4">Offerings History</h3>
+                    <div class="space-y-3">
+                        ${state.offerings.map(offering => `
+                            <div class="flex justify-between items-center p-4 border rounded-lg hover:bg-gray-50">
+                                <div>
+                                    <p class="font-semibold text-gray-800">${offering.type}</p>
+                                    <p class="text-sm text-gray-600">${offering.date} ${offering.notes ? '• ' + offering.notes : ''}</p>
+                                    <p class="text-xs text-gray-400">Added by ${offering.addedBy}</p>
+                                </div>
+                                <p class="text-2xl font-bold text-green-600">KES ${offering.amount.toLocaleString()}</p>
+                            </div>
+                        `).join('')}
+                        ${state.offerings.length === 0 ? '<p class="text-gray-500 text-center py-8">No offerings recorded yet</p>' : ''}
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderTithesView() {
+            return `
+                <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                    ${state.currentUser.role === 'admin' ? `
+                        <button onclick="toggleForm('tithe')" 
+                            class="mb-6 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700">
+                            ➕ Record Tithe
+                        </button>
+                    ` : ''}
+
+                    ${state.showForms.tithe ? `
+                        <div class="mb-6 p-6 bg-gray-50 rounded-lg">
+                            <h3 class="text-xl font-bold mb-4">Record New Tithe</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <input type="date" id="titheDate" class="px-4 py-3 border rounded-lg">
+                                <input type="number" id="titheAmount" placeholder="Amount (KES)" class="px-4 py-3 border rounded-lg">
+                                <input type="text" id="titheContributor" placeholder="Contributor Name" class="px-4 py-3 border rounded-lg">
+                                <input type="text" id="titheNotes" placeholder="Notes (optional)" class="px-4 py-3 border rounded-lg">
+                            </div>
+                            <div class="flex gap-4 mt-4">
+                                <button onclick="addTithe()" class="flex-1 bg-blue-600 text-white py-3 rounded-lg font-semibold">
+                                    Save Tithe
+                                </button>
+                                <button onclick="toggleForm('tithe')" class="flex-1 bg-gray-300 py-3 rounded-lg font-semibold">
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+                    ` : ''}
+
+                    <h3 class="text-xl font-bold text-gray-800 mb-4">Tithes History</h3>
+                    <div class="space-y-3">
+                        ${state.tithes.map(tithe => `
+                            <div class="flex justify-between items-center p-4 border rounded-lg hover:bg-gray-50">
+                                <div>
+                                    <p class="font-semibold text-gray-800">${tithe.contributor}</p>
+                                    <p class="text-sm text-gray-600">${tithe.date} ${tithe.notes ? '• ' + tithe.notes : ''}</p>
+                                    <p class="text-xs text-gray-400">Added by ${tithe.addedBy}</p>
+                                </div>
+                                <p class="text-2xl font-bold text-blue-600">KES ${tithe.amount.toLocaleString()}</p>
+                            </div>
+                        `).join('')}
+                        ${state.tithes.length === 0 ? '<p class="text-gray-500 text-center py-8">No tithes recorded yet</p>' : ''}
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderDonationsView() {
+            return `
+                <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                    ${state.currentUser.role === 'admin' ? `
+                        <button onclick="toggleForm('donation')" 
+                            class="mb-6 bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700">
+                            ➕ Record Donation
+                        </button>
+                    ` : ''}
+
+                    ${state.showForms.donation ? `
+                        <div class="mb-6 p-6 bg-gray-50 rounded-lg">
+                            <h3 class="text-xl font-bold mb-4">Record New Donation</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <input type="date" id="donationDate" class="px-4 py-3 border rounded-lg">
+                                <input type="number" id="donationAmount" placeholder="Amount (KES)" class="px-4 py-3 border rounded-lg">
+                                <input type="text" id="donationDonor" placeholder="Donor Name" class="px-4 py-3 border rounded-lg">
+                                <input type="text" id="donationPurpose" placeholder="Purpose/Project" class="px-4 py-3 border rounded-lg">
+                                <textarea id="donationNotes" placeholder="Additional notes" rows="3" class="px-4 py-3 border rounded-lg md:col-span-2"></textarea>
+                            </div>
+                            <div class="flex gap-4 mt-4">
+                                <button onclick="addDonation()" class="flex-1 bg-purple-600 text-white py-3 rounded-lg font-semibold">
+                                    Save Donation
+                                </button>
+                                <button onclick="toggleForm('donation')" class="flex-1 bg-gray-300 py-3 rounded-lg font-semibold">
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+                    ` : ''}
+
+                    <h3 class="text-xl font-bold text-gray-800 mb-4">Donations History</h3>
+                    <div class="space-y-3">
+                        ${state.donations.map(donation => `
+                            <div class="flex justify-between items-center p-4 border rounded-lg hover:bg-gray-50">
+                                <div class="flex-1">
+                                    <p class="font-semibold text-gray-800">${donation.donor}</p>
+                                    <p class="text-sm text-purple-600 font-medium">${donation.purpose}</p>
+                                    <p class="text-sm text-gray-600">${donation.date} ${donation.notes ? '• ' + donation.notes : ''}</p>
+                                    <p class="text-xs text-gray-400">Added by ${donation.addedBy}</p>
+                                </div>
+                                <p class="text-2xl font-bold text-purple-600">KES ${donation.amount.toLocaleString()}</p>
+                            </div>
+                        `).join('')}
+                        ${state.donations.length === 0 ? '<p class="text-gray-500 text-center py-8">No donations recorded yet</p>' : ''}
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderExpensesView() {
+            return `
+                <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                    ${state.currentUser.role === 'admin' ? `
+                        <button onclick="toggleForm('expense')" 
+                            class="mb-6 bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700">
+                            ➕ Record Expense
+                        </button>
+                    ` : ''}
+
+                    ${state.showForms.expense ? `
+                        <div class="mb-6 p-6 bg-gray-50 rounded-lg">
+                            <h3 class="text-xl font-bold mb-4">Record New Expense</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <input type="date" id="expenseDate" class="px-4 py-3 border rounded-lg">
+                                <input type="number" id="expenseAmount" placeholder="Amount (KES)" class="px-4 py-3 border rounded-lg">
+                                <select id="expenseCategory" class="px-4 py-3 border rounded-lg">
+                                    <option>Utilities (Water, Electricity)</option>
+                                    <option>Maintenance & Repairs</option>
+                                    <option>Salaries & Allowances</option>
+                                    <option>Outreach Programs</option>
+                                    <option>Office Supplies</option>
+                                    <option>Transportation</option>
+                                    <option>Events & Programs</option>
+                                    <option>Other</option>
+                                </select>
+                                <input type="text" id="expensePayee" placeholder="Paid to" class="px-4 py-3 border rounded-lg">
+                                <textarea id="expenseDescription" placeholder="Description" rows="3" class="px-4 py-3 border rounded-lg md:col-span-2"></textarea>
+                            </div>
+                            <div class="flex gap-4 mt-4">
+                                <button onclick="addExpense()" class="flex-1 bg-red-600 text-white py-3 rounded-lg font-semibold">
+                                    Save Expense
+                                </button>
+                                <button onclick="toggleForm('expense')" class="flex-1 bg-gray-300 py-3 rounded-lg font-semibold">
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+                    ` : ''}
+
+                    <h3 class="text-xl font-bold text-gray-800 mb-4">Expenses History</h3>
+                    <div class="space-y-3">
+                        ${state.expenses.map(expense => `
+                            <div class="flex justify-between items-center p-4 border rounded-lg hover:bg-gray-50">
+                                <div class="flex-1">
+                                    <p class="font-semibold text-gray-800">${expense.description}</p>
+                                    <p class="text-sm text-red-600 font-medium">${expense.category}</p>
+                                    <p class="text-sm text-gray-600">${expense.date} • Paid to: ${expense.payee}</p>
+                                    <p class="text-xs text-gray-400">Added by ${expense.addedBy}</p>
+                                </div>
+                                <p class="text-2xl font-bold text-red-600">KES ${expense.amount.toLocaleString()}</p>
+                            </div>
+                        `).join('')}
+                        ${state.expenses.length === 0 ? '<p class="text-gray-500 text-center py-8">No expenses recorded yet</p>' : ''}
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderBudgetsView() {
+            return `
+                <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                    ${state.currentUser.role === 'admin' ? `
+                        <button onclick="toggleForm('budget')" 
+                            class="mb-6 bg-indigo-600 text-white px-6 py-3 rounded-lg hover:bg-indigo-700">
+                            ➕ Create Budget
+                        </button>
+                    ` : ''}
+
+                    ${state.showForms.budget ? `
+                        <div class="mb-6 p-6 bg-gray-50 rounded-lg">
+                            <h3 class="text-xl font-bold mb-4">Create New Budget</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <input type="text" id="budgetName" placeholder="Budget Name" class="px-4 py-3 border rounded-lg">
+                                <input type="number" id="budgetAmount" placeholder="Budget Amount (KES)" class="px-4 py-3 border rounded-lg">
+                                <select id="budgetCategory" class="px-4 py-3 border rounded-lg">
+                                    <option>Building Project</option>
+                                    <option>Outreach Program</option>
+                                    <option>Youth Ministry</option>
+                                    <option>Children Ministry</option>
+                                    <option>Music Department</option>
+                                    <option>Maintenance</option>
+                                    <option>Events</option>
+                                    <option>Other</option>
+                                </select>
+                                <div></div>
+                                <input type="date" id="budgetStartDate" placeholder="Start Date" class="px-4 py-3 border rounded-lg">
+                                <input type="date" id="budgetEndDate" placeholder="End Date" class="px-4 py-3 border rounded-lg">
+                                <textarea id="budgetDescription" placeholder="Description" rows="3" class="px-4 py-3 border rounded-lg md:col-span-2"></textarea>
+                            </div>
+                            <div class="flex gap-4 mt-4">
+                                <button onclick="addBudget()" class="flex-1 bg-indigo-600 text-white py-3 rounded-lg font-semibold">
+                                    Create Budget
+                                </button>
+                                <button onclick="toggleForm('budget')" class="flex-1 bg-gray-300 py-3 rounded-lg font-semibold">
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+                    ` : ''}
+
+                    <h3 class="text-xl font-bold text-gray-800 mb-4">Active Budgets</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        ${state.budgets.map(budget => {
+                            const percentage = (budget.spent / budget.amount) * 100;
+                            return `
+                                <div class="border rounded-lg p-6 hover:shadow-lg transition-all">
+                                    <div class="flex justify-between items-start mb-4">
+                                        <div>
+                                            <h4 class="text-lg font-bold text-gray-800">${budget.name}</h4>
+                                            <p class="text-sm text-indigo-600">${budget.category}</p>
+                                        </div>
+                                        <span class="px-3 py-1 rounded-full text-xs font-semibold ${
+                                            percentage < 50 ? 'bg-green-100 text-green-700' :
+                                            percentage < 80 ? 'bg-yellow-100 text-yellow-700' :
+                                            'bg-red-100 text-red-700'
+                                        }">
+                                            ${percentage.toFixed(0)}% Used
+                                        </span>
+                                    </div>
+                                    <p class="text-sm text-gray-600 mb-4">${budget.description}</p>
+                                    <div class="mb-3">
+                                        <div class="flex justify-between text-sm mb-1">
+                                            <span>Spent: KES ${budget.spent.toLocaleString()}</span>
+                                            <span>Budget: KES ${budget.amount.toLocaleString()}</span>
+                                        </div>
+                                        <div class="w-full bg-gray-200 rounded-full h-3">
+                                            <div class="h-3 rounded-full ${
+                                                percentage < 50 ? 'bg-green-500' :
+                                                percentage < 80 ? 'bg-yellow-500' :
+                                                'bg-red-500'
+                                            }" style="width: ${Math.min(percentage, 100)}%"></div>
+                                        </div>
+                                    </div>
+                                    <div class="flex justify-between text-xs text-gray-500">
+                                        <span>📅 ${budget.startDate} to ${budget.endDate}</span>
+                                        <span>Remaining: KES ${(budget.amount - budget.spent).toLocaleString()}</span>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                        ${state.budgets.length === 0 ? '<p class="text-gray-500 text-center py-8 col-span-2">No budgets created yet</p>' : ''}
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderReadingsPage() {
+            const filteredReadings = state.readings.filter(r =>
+                r.title.toLowerCase().includes(state.searchTerm.toLowerCase()) ||
+                r.content.toLowerCase().includes(state.searchTerm.toLowerCase())
+            );
+
+            return `
+                <div class="max-w-7xl mx-auto px-4 py-8 fade-in">
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+                        <h2 class="text-3xl font-bold text-gray-800">📖 Sunday Readings Archive</h2>
+                        ${state.currentUser.role === 'admin' ? `
+                            <button onclick="toggleForm('reading')"
+                                class="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-all">
+                                ➕ Add Reading
+                            </button>
+                        ` : ''}
+                    </div>
+
+                    <div class="mb-6">
+                        <input type="text" placeholder="Search readings..." 
+                            oninput="handleSearch(this.value)" value="${state.searchTerm}"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    </div>
+
+                    ${state.showForms.reading && state.currentUser.role === 'admin' ? `
+                        <div class="bg-white rounded-xl shadow-lg p-6 mb-8">
+                            <h3 class="text-xl font-bold text-gray-800 mb-4">Add New Reading</h3>
+                            <div class="space-y-4">
+                                <input type="text" id="readingTitle" placeholder="Reading Title"
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg">
+                                <input type="date" id="readingDate"
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg">
+                                <input type="text" id="readingScripture" placeholder="Scripture Reference"
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg">
+                                <textarea id="readingContent" placeholder="Reading Content" rows="6"
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg"></textarea>
+                                <input type="url" id="readingAudio" placeholder="Audio URL (optional)"
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg">
+                                <div class="flex gap-4">
+                                    <button onclick="addReading()"
+                                        class="flex-1 bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700">
+                                        Save Reading
+                                    </button>
+                                    <button onclick="toggleForm('reading')"
+                                        class="flex-1 bg-gray-200 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-300">
+                                        Cancel
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    ` : ''}
+
+                    <div class="space-y-6">
+                        ${filteredReadings.map(reading => `
+                            <div class="bg-white rounded-xl shadow-lg p-6">
+                                <h3 class="text-2xl font-bold text-gray-800">${reading.title}</h3>
+                                <p class="text-sm text-gray-500 mt-1">${reading.date}</p>
+                                ${reading.scripture ? `<p class="text-sm text-blue-600 font-semibold mt-1">${reading.scripture}</p>` : ''}
+                                <p class="text-gray-700 mt-4 whitespace-pre-wrap">${reading.content}</p>
+                                ${reading.audioUrl ? `
+                                    <audio controls class="w-full mt-4">
+                                        <source src="${reading.audioUrl}" type="audio/mpeg">
+                                    </audio>
+                                ` : ''}
+                                <p class="text-xs text-gray-400 mt-4">Added by ${reading.addedBy}</p>
+                            </div>
+                        `).join('')}
+                        ${filteredReadings.length === 0 ? `
+                            <div class="text-center py-12">
+                                <p class="text-gray-500">No readings found</p>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderAnnouncementsPage() {
+            return `
+                <div class="max-w-7xl mx-auto px-4 py-8 fade-in">
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+                        <h2 class="text-3xl font-bold text-gray-800">📢 Church Announcements</h2>
+                        ${state.currentUser.role === 'admin' ? `
+                            <button onclick="toggleForm('announcement')"
+                                class="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700">
+                                ➕ New Announcement
+                            </button>
+                        ` : ''}
+                    </div>
+
+                    ${state.showForms.announcement && state.currentUser.role === 'admin' ? `
+                        <div class="bg-white rounded-xl shadow-lg p-6 mb-8">
+                            <h3 class="text-xl font-bold text-gray-800 mb-4">Create Announcement</h3>
+                            <div class="space-y-4">
+                                <input type="text" id="announcementTitle" placeholder="Announcement Title"
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg">
+                                <select id="announcementPriority"
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg">
+                                    <option value="normal">Normal Priority</option>
+                                    <option value="high">High Priority</option>
+                                    <option value="urgent">Urgent</option>
+                                </select>
+                                <textarea id="announcementContent" placeholder="Announcement Details" rows="4"
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg"></textarea>
+                                <div class="flex gap-4">
+                                    <button onclick="addAnnouncement()"
+                                        class="flex-1 bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700">
+                                        Post Announcement
+                                    </button>
+                                    <button onclick="toggleForm('announcement')"
+                                        class="flex-1 bg-gray-200 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-300">
+                                        Cancel
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    ` : ''}
+
+                    <div class="space-y-4">
+                        ${state.announcements.map(announcement => `
+                            <div class="bg-white rounded-xl shadow-lg p-6 border-l-4 ${
+                                announcement.priority === 'urgent' ? 'border-red-500' :
+                                announcement.priority === 'high' ? 'border-orange-500' : 'border-green-500'
+                            }">
+                                <div class="flex justify-between items-start">
+                                    <div class="flex-1">
+                                        <h3 class="text-xl font-bold text-gray-800">${announcement.title}</h3>
+                                        <p class="text-gray-700 mt-2">${announcement.content}</p>
+                                        <div class="flex items-center gap-4 text-sm text-gray-500 mt-3">
+                                            <span>📅 ${announcement.date}</span>
+                                            <span>👤 ${announcement.addedBy}</span>
+                                        </div>
+                                    </div>
+                                    ${announcement.priority === 'urgent' ? `
+                                        <span class="bg-red-100 text-red-700 px-3 py-1 rounded-full text-xs font-semibold">⚠️ URGENT</span>
+                                    ` : ''}
+                                </div>
+                            </div>
+                        `).join('')}
+                        ${state.announcements.length === 0 ? `
+                            <div class="text-center py-12">
+                                <p class="text-gray-500">No announcements yet</p>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderBookingsPage() {
+            const myBookings = state.bookings.filter(b => b.memberPhone === state.currentUser.phone);
+            const allBookings = state.currentUser.role === 'admin' ? state.bookings : myBookings;
+            const timeSlots = ['09:00 AM', '10:00 AM', '11:00 AM', '02:00 PM', '03:00 PM', '04:00 PM'];
+
+            return `
+                <div class="max-w-7xl mx-auto px-4 py-8 fade-in">
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+                        <h2 class="text-3xl font-bold text-gray-800">📅 Pastoral Bookings</h2>
+                        <button onclick="toggleForm('booking')"
+                            class="bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700">
+                            ➕ Book Appointment
+                        </button>
+                    </div>
+
+                    ${state.showForms.booking ? `
+                        <div class="bg-white rounded-xl shadow-lg p-6 mb-8">
+                            <h3 class="text-xl font-bold text-gray-800 mb-4">Book Pastoral Appointment</h3>
+                            <div class="space-y-4">
+                                <select id="bookingPastor" class="w-full px-4 py-3 border border-gray-300 rounded-lg">
+                                    <option>Pastor John</option>
+                                    <option>Pastor Mary</option>
+                                    <option>Pastor David</option>
+                                </select>
+                                <input type="date" id="bookingDate" min="${new Date().toISOString().split('T')[0]}"
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg">
+                                <input type="hidden" id="bookingTime">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Select Time Slot</label>
+                                    <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                        ${timeSlots.map(slot => `
+                                            <button type="button" onclick="selectTimeSlot('${slot}')"
+                                                class="time-slot px-4 py-3 rounded-lg border-2 border-gray-300 hover:border-purple-400 transition-all">
+                                                ${slot}
+                                            </button>
+                                        `).join('')}
+                                    </div>
+                                </div>
+                                <textarea id="bookingReason" placeholder="Reason for appointment" rows="4"
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg"></textarea>
+                                <div class="flex gap-4">
+                                    <button onclick="addBooking()"
+                                        class="flex-1 bg-purple-600 text-white py-3 rounded-lg font-semibold hover:bg-purple-700">
+                                        Confirm Booking
+                                    </button>
+                                    <button onclick="toggleForm('booking')"
+                                        class="flex-1 bg-gray-200 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-300">
+                                        Cancel
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    ` : ''}
+
+                    <div class="space-y-4">
+                        ${allBookings.map(booking => `
+                            <div class="bg-white rounded-xl shadow-lg p-6">
+                                <div class="flex justify-between items-start mb-4">
+                                    <div>
+                                        <h3 class="text-xl font-bold text-gray-800">${booking.pastor}</h3>
+                                        <p class="text-sm text-gray-500 mt-1">with ${booking.memberName}</p>
+                                    </div>
+                                    <span class="px-3 py-1 rounded-full text-xs font-semibold ${
+                                        booking.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
+                                        booking.status === 'confirmed' ? 'bg-green-100 text-green-700' :
+                                        'bg-red-100 text-red-700'
+                                    }">
+                                        ${booking.status.toUpperCase()}
+                                    </span>
+                                </div>
+                                <div class="flex gap-6 text-sm text-gray-600 mb-3">
+                                    <span>📅 ${booking.date}</span>
+                                    <span>🕐 ${booking.time}</span>
+                                </div>
+                                <p class="text-gray-700">${booking.reason}</p>
+                            </div>
+                        `).join('')}
+                        ${allBookings.length === 0 ? `
+                            <div class="text-center py-12">
+                                <p class="text-gray-500">No bookings yet</p>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderPrayersPage() {
+            return `
+                <div class="max-w-7xl mx-auto px-4 py-8 fade-in">
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+                        <h2 class="text-3xl font-bold text-gray-800">🙏 Prayer Wall</h2>
+                        <button onclick="toggleForm('prayer')"
+                            class="bg-pink-600 text-white px-6 py-3 rounded-lg hover:bg-pink-700">
+                            ➕ Share Prayer
+                        </button>
+                    </div>
+
+                    ${state.showForms.prayer ? `
+                        <div class="bg-white rounded-xl shadow-lg p-6 mb-8">
+                            <h3 class="text-xl font-bold text-gray-800 mb-4">Share a Prayer Request</h3>
+                            <div class="space-y-4">
+                                <input type="text" id="prayerTitle" placeholder="Prayer Request Title"
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg">
+                                <textarea id="prayerContent" placeholder="Share your prayer request..." rows="4"
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg"></textarea>
+                                <div class="flex gap-4">
+                                    <button onclick="addPrayer()"
+                                        class="flex-1 bg-pink-600 text-white py-3 rounded-lg font-semibold hover:bg-pink-700">
+                                        Share Prayer
+                                    </button>
+                                    <button onclick="toggleForm('prayer')"
+                                        class="flex-1 bg-gray-200 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-300">
+                                        Cancel
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    ` : ''}
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        ${state.prayers.map(prayer => `
+                            <div class="bg-white rounded-xl shadow-lg p-6">
+                                <h3 class="text-lg font-bold text-gray-800 mb-2">${prayer.title}</h3>
+                                <p class="text-gray-700 mb-4">${prayer.content}</p>
+                                <div class="flex justify-between items-center">
+                                    <div class="text-sm text-gray-500">
+                                        <p>👤 ${prayer.author}</p>
+                                        <p>📅 ${prayer.date}</p>
+                                    </div>
+                                    <button onclick="addPrayerSupport(${prayer.id})"
+                                        class="flex items-center gap-2 bg-pink-50 text-pink-600 px-4 py-2 rounded-lg hover:bg-pink-100">
+                                        ❤️ <span class="font-semibold">${prayer.prayerCount}</span>
+                                    </button>
+                                </div>
+                            </div>
+                        `).join('')}
+                        ${state.prayers.length === 0 ? `
+                            <div class="col-span-2 text-center py-12">
+                                <p class="text-gray-500">No prayer requests yet</p>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderEventsPage() {
+            return `
+                <div class="max-w-7xl mx-auto px-4 py-8 fade-in">
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+                        <h2 class="text-3xl font-bold text-gray-800">🎉 Church Events</h2>
+                        ${state.currentUser.role === 'admin' ? `
+                            <button onclick="toggleForm('event')"
+                                class="bg-indigo-600 text-white px-6 py-3 rounded-lg hover:bg-indigo-700">
+                                ➕ Create Event
+                            </button>
+                        ` : ''}
+                    </div>
+
+                    ${state.showForms.event && state.currentUser.role === 'admin' ? `
+                        <div class="bg-white rounded-xl shadow-lg p-6 mb-8">
+                            <h3 class="text-xl font-bold text-gray-800 mb-4">Create New Event</h3>
+                            <div class="space-y-4">
+                                <input type="text" id="eventTitle" placeholder="Event Title"
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <input type="date" id="eventDate"
+                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg">
+                                    <input type="time" id="eventTime"
+                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg">
+                                </div>
+                                <input type="text" id="eventLocation" placeholder="Event Location"
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg">
+                                <textarea id="eventDescription" placeholder="Event Description" rows="4"
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg"></textarea>
+                                <div class="flex gap-4">
+                                    <button onclick="addEvent()"
+                                        class="flex-1 bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700">
+                                        Create Event
+                                    </button>
+                                    <button onclick="toggleForm('event')"
+                                        class="flex-1 bg-gray-200 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-300">
+                                        Cancel
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    ` : ''}
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        ${state.events.map(event => {
+                            const eventDate = new Date(event.date);
+                            return `
+                                <div class="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-all">
+                                    <div class="bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-lg p-4 mb-4 text-center">
+                                        <p class="text-sm opacity-90">${eventDate.toLocaleDateString('en-US', { month: 'short' })}</p>
+                                        <p class="text-4xl font-bold">${eventDate.getDate()}</p>
+                                    </div>
+                                    <h3 class="text-xl font-bold text-gray-800 mb-2">${event.title}</h3>
+                                    <div class="space-y-2 text-sm text-gray-600 mb-3">
+                                        <div>🕐 ${event.time}</div>
+                                        ${event.location ? `<div>📍 ${event.location}</div>` : ''}
+                                    </div>
+                                    <p class="text-gray-700 text-sm mb-3">${event.description}</p>
+                                    <p class="text-xs text-gray-400">👤 ${event.organizer}</p>
+                                </div>
+                            `;
+                        }).join('')}
+                        ${state.events.length === 0 ? `
+                            <div class="col-span-3 text-center py-12">
+                                <p class="text-gray-500">No upcoming events</p>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        }
+
+        function render() {
+            const app = document.getElementById('app');
+            if (!state.currentUser) {
+                app.innerHTML = renderLoginPage();
+            } else {
+                let content = '';
+                if (state.currentPage === 'dashboard') content = renderDashboard();
+                else if (state.currentPage === 'readings') content = renderReadingsPage();
+                else if (state.currentPage === 'announcements') content = renderAnnouncementsPage();
+                else if (state.currentPage === 'bookings') content = renderBookingsPage();
+                else if (state.currentPage === 'prayers') content = renderPrayersPage();
+                else if (state.currentPage === 'events') content = renderEventsPage();
+                else if (state.currentPage === 'finances') content = renderFinancesPage();
+                
+                app.innerHTML = renderNavigation() + content;
+            }
+        }
+
+        loadData();
+        render();
+    </script>
+</body>
+</html>
